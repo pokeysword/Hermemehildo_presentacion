@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autoescuela – Base de Datos PL/pgSQL</title>
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Variables ──────────────────────────────────────────── */
+    :root {
+      --bg:      #0d1117;
+      --bg2:     #161b22;
+      --bg3:     #21262d;
+      --border:  #30363d;
+      --accent:  #58a6ff;
+      --green:   #3fb950;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --radius:  10px;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* ── Slider wrapper ─────────────────────────────────────── */
+    .slider-wrapper { width: 100vw; height: 100vh; overflow: hidden; }
+
+    .slides-track {
+      display: flex;
+      height: 100%;
+      transition: transform 0.42s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Each slide ─────────────────────────────────────────── */
+    .slide {
+      min-width: 100vw;
+      height: 100%;
+      padding: 22px 44px 82px;   /* 82px bottom = nav bar clearance */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Tags ────────────────────────────────────────────────── */
+    .tag {
+      display: inline-block;
+      padding: 3px 11px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+      width: fit-content;
+    }
+    .tag-fn   { background: #1c3461; color: #79c0ff; border: 1px solid #1c5ad4; }
+    .tag-proc { background: #2d1b69; color: #d2a8ff; border: 1px solid #6e40c9; }
+    .tag-trig { background: #5c1a1a; color: #ffa198; border: 1px solid #c93030; }
+    .tag-sch  { background: #0e3824; color: #56d364; border: 1px solid #238636; }
+    .tag-bk   { background: #3d2c00; color: #e3b341; border: 1px solid #9e6a03; }
+
+    /* ── Slide title ─────────────────────────────────────────── */
+    .slide-title {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--text);
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    /* ── Slide body: grows to fill remaining space ───────────── */
+    .slide-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    /* ── Content row: explanation LEFT + code image RIGHT ───── */
+    .content-row {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 12px;
+      flex: 6;
+      min-height: 0;
+    }
+
+    /* Explanation card */
+    .explanation {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+    .explanation h3 {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 3px;
+    }
+    .explanation p  { font-size: .88rem; color: var(--muted); line-height: 1.65; }
+    .explanation strong { color: var(--text); }
+    .explanation code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: var(--bg3);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: .82rem;
+      color: #ffa657;
+    }
+
+    /* Code image card */
+    .code-img-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: zoom-in;
+    }
+    .code-img-card img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+      transition: transform .2s;
+    }
+    .code-img-card:hover img { transform: scale(1.015); }
+
+    /* ── Examples ────────────────────────────────────────────── */
+    .examples-label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .examples-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      flex: 4;
+      min-height: 0;
+    }
+
+    .ex-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: zoom-in;
+      transition: border-color .2s;
+    }
+    .ex-card:hover { border-color: var(--accent); }
+
+    .ex-label {
+      background: var(--bg3);
+      font-size: .68rem;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 4px 10px;
+      letter-spacing: .06em;
+      flex-shrink: 0;
+    }
+
+    .ex-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: top;
+      display: block;
+    }
+
+    /* ── COVER slide ─────────────────────────────────────────── */
+    .slide-cover {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: radial-gradient(ellipse at 60% 40%, #0d2040 0%, #0d1117 70%);
+      padding-bottom: 22px;
+    }
+    .cover-icon { font-size: 4.5rem; margin-bottom: 16px; }
+    .cover-title {
+      font-size: 3.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -.02em;
+      text-shadow: 0 0 40px rgba(88,166,255,.35);
+      margin-bottom: 8px;
+    }
+    .cover-sub { font-size: 1.25rem; color: var(--muted); margin-bottom: 28px; }
+    .cover-pills { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .pill {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: .82rem;
+      color: var(--muted);
+    }
+
+    /* ── SCHEMA slide ────────────────────────────────────────── */
+    .schema-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: zoom-in;
+    }
+    .schema-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    /* ── TABLA PREVIA slide ──────────────────────────────────── */
+    .tabla-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      min-height: 0;
+    }
+    .tabla-body p { font-size: .92rem; color: var(--muted); text-align: center; max-width: 580px; line-height: 1.65; }
+    .tabla-body code {
+      font-family: monospace;
+      background: var(--bg3);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: .88rem;
+      color: #ffa657;
+    }
+    .tabla-img-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      cursor: zoom-in;
+      max-width: 660px;
+    }
+    .tabla-img-wrap img { max-width: 100%; max-height: 42vh; object-fit: contain; display: block; }
+
+    /* ── BACKUP slide ────────────────────────────────────────── */
+    .backup-body { flex: 1; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
+
+    .backup-sub { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+
+    .cmd-block {
+      background: #010409;
+      border: 1px solid #238636;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      font-family: 'Consolas', monospace;
+      font-size: .92rem;
+      color: var(--green);
+      word-break: break-all;
+    }
+
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+    }
+    .param-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 11px 14px;
+    }
+    .param-name {
+      font-family: 'Consolas', monospace;
+      color: var(--accent);
+      font-size: .82rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .param-card p { font-size: .8rem; color: var(--muted); line-height: 1.55; }
+
+    .restore-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .restore-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+    .restore-card h4 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+    .restore-card .cmd-block { font-size: .78rem; padding: 10px 13px; }
+
+    /* ── Navigation bar ──────────────────────────────────────── */
+    .nav-bar {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(22, 27, 34, .92);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 7px 16px;
+      z-index: 200;
+      user-select: none;
+    }
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 1.15rem;
+      cursor: pointer;
+      padding: 4px 9px;
+      border-radius: 6px;
+      transition: background .15s;
+      line-height: 1;
+    }
+    .nav-btn:hover:not(:disabled) { background: var(--bg3); }
+    .nav-btn:disabled { opacity: .3; cursor: default; }
+
+    .nav-dots { display: flex; gap: 4px; align-items: center; }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      cursor: pointer;
+      transition: background .2s, width .2s, border-radius .2s;
+    }
+    .dot.active { width: 20px; background: var(--accent); border-radius: 3px; }
+
+    .nav-count { font-size: .8rem; color: var(--muted); min-width: 44px; text-align: center; }
+
+    /* ── Zoom modal ──────────────────────────────────────────── */
+    .modal {
+      position: fixed; inset: 0; z-index: 999;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .22s;
+    }
+    .modal.open { opacity: 1; pointer-events: all; }
+
+    .modal-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.88);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-img {
+      position: relative; z-index: 1;
+      max-width: 93vw; max-height: 91vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 80px rgba(0,0,0,.9);
+      transform-origin: center center;
+      transition: transform .08s ease-out;
+      will-change: transform;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .modal-close {
+      position: absolute; top: 18px; right: 22px; z-index: 2;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .modal-close:hover { background: var(--bg3); }
+
+    /* Zoom controls bar */
+    .zoom-bar {
+      position: absolute; bottom: 22px; left: 50%; z-index: 2;
+      transform: translateX(-50%);
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(22,27,34,.9);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 14px;
+      backdrop-filter: blur(8px);
+      pointer-events: all;
+    }
+    .zoom-bar button {
+      background: none; border: none;
+      color: var(--text); font-size: 1.1rem;
+      cursor: pointer; padding: 2px 7px;
+      border-radius: 5px; line-height: 1;
+      transition: background .12s;
+    }
+    .zoom-bar button:hover { background: var(--bg3); }
+    .zoom-level {
+      font-size: .78rem; color: var(--muted);
+      min-width: 42px; text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .zoom-sep { width: 1px; height: 14px; background: var(--border); }
+
+    /* Hint that fades in on open */
+    .zoom-hint {
+      position: absolute; top: 20px; left: 50%; z-index: 2;
+      transform: translateX(-50%);
+      background: rgba(22,27,34,.82);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: .73rem; color: var(--muted);
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 1s;
+      white-space: nowrap;
+      backdrop-filter: blur(6px);
+    }
+    .zoom-hint.hidden { opacity: 0; }
+
+    /* scrollbar style */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDER
+════════════════════════════════════════════════════════════ -->
+<div class="slider-wrapper">
+<div class="slides-track" id="track">
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 1 — PORTADA                                  ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide slide-cover">
+  <div class="cover-icon">🚗</div>
+  <h1 class="cover-title">Autoescuela Hermemehildo</h1>
+  <p class="cover-sub">Bases de Datos — PL/pgSQL</p>
+  <div class="cover-pills">
+    <span class="pill">📐 Esquema ER</span>
+    <span class="pill">⚙️ Función 1</span>
+    <span class="pill">⚙️ Función 2</span>
+    <span class="pill">🔧 Procedimiento</span>
+    <span class="pill">⚡ Trigger 1</span>
+    <span class="pill">⚡ Trigger 2</span>
+    <span class="pill">💾 Backup</span>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 2 — ESQUEMA ER                               ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-sch">Esquema</span>
+  <h2 class="slide-title">Modelo Entidad-Relación de la Base de Datos</h2>
+  <div class="schema-body zoomable" data-src="imágenes/Esquema.png">
+    <img src="imágenes/Esquema.png" alt="Esquema ER" />
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 3 — FUNCIÓN 1                                ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-fn">Función 1</span>
+  <h2 class="slide-title">total_minutos_estudiante ( p_idestudiante )</h2>
+
+  <div class="slide-body">
+    <div class="content-row">
+
+      <div class="explanation">
+        <div>
+          <h3>¿Qué hace?</h3>
+          <p>Recibe el ID de un estudiante y devuelve cuántos minutos de prácticas tiene acumulados en total.</p>
+        </div>
+        <div>
+          <h3>¿Por qué es útil?</h3>
+          <p>Los profesores pueden comprobar de un vistazo si un alumno tiene suficientes horas de conducción antes de presentarse al examen práctico, sin tener que hacer cuentas a mano.</p>
+        </div>
+        <div>
+          <h3>Técnicas usadas</h3>
+          <p><strong>Parámetro:</strong> <code>p_idestudiante</code> &nbsp;·&nbsp; <strong>Variables:</strong> <code>v_nombre</code>, <code>v_total</code><br/>
+          <strong>SELECT INTO STRICT</strong> (NO_DATA_FOUND si no existe) &nbsp;·&nbsp; <strong>IF / ELSIF / ELSE</strong> según los minutos acumulados &nbsp;·&nbsp; gestión de <strong>OTHERS</strong>.</p>
+        </div>
+      </div>
+
+      <div class="code-img-card zoomable" data-src="imágenes/Funcion1.png">
+        <img src="imágenes/Funcion1.png" alt="Código Función 1" />
+      </div>
+    </div>
+
+    <p class="examples-label">Ejemplos de llamada</p>
+    <div class="examples-row">
+      <div class="ex-card zoomable" data-src="imágenes/Funcion1_ejemplo1.png">
+        <div class="ex-label">Ejemplo 1 — Estudiante con prácticas (115 min)</div>
+        <img src="imágenes/Funcion1_ejemplo1.png" alt="Ejemplo 1" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Funcion1_ejemplo2.png">
+        <div class="ex-label">Ejemplo 2 — Estudiante sin prácticas (0 min)</div>
+        <img src="imágenes/Funcion1_ejemplo2.png" alt="Ejemplo 2" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Funcion1_ejemplo3.png">
+        <div class="ex-label">Ejemplo 3 — ID inexistente → excepción</div>
+        <img src="imágenes/Funcion1_ejemplo3.png" alt="Ejemplo 3" />
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 4 — FUNCIÓN 2                                ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-fn">Función 2</span>
+  <h2 class="slide-title">practicas_del_instructor ( p_idinstructor )</h2>
+
+  <div class="slide-body">
+    <div class="content-row">
+
+      <div class="explanation">
+        <div>
+          <h3>¿Qué hace?</h3>
+          <p>Devuelve una tabla con el listado de prácticas que ha impartido un instructor: el nombre del estudiante, la fecha, la duración y la matrícula del vehículo.</p>
+        </div>
+        <div>
+          <h3>¿Por qué es útil?</h3>
+          <p>Permite ver el historial de clases de cada profesor de forma clara, sin tener que escribir JOINs manualmente cada vez que se necesite esta información.</p>
+        </div>
+        <div>
+          <h3>Técnicas usadas</h3>
+          <p><strong>Cursor explícito</strong> con JOIN a <code>personas</code> y LEFT JOIN a <code>vehiculos</code> &nbsp;·&nbsp; <strong>Bucle LOOP / EXIT WHEN NOT FOUND</strong> &nbsp;·&nbsp; <strong>RETURN NEXT</strong> fila a fila &nbsp;·&nbsp; excepciones <strong>NO_DATA_FOUND</strong> y <strong>OTHERS</strong>.</p>
+        </div>
+      </div>
+
+      <div class="code-img-card zoomable" data-src="imágenes/Funcion2.png">
+        <img src="imágenes/Funcion2.png" alt="Código Función 2" />
+      </div>
+    </div>
+
+    <p class="examples-label">Ejemplos de llamada</p>
+    <div class="examples-row">
+      <div class="ex-card zoomable" data-src="imágenes/Funcion2_ejemplo1.png">
+        <div class="ex-label">Ejemplo 1 — Instructor con prácticas</div>
+        <img src="imágenes/Funcion2_ejemplo1.png" alt="Ejemplo 1" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Funcion2_ejemplo2.png">
+        <div class="ex-label">Ejemplo 2 — Otro instructor</div>
+        <img src="imágenes/Funcion2_ejemplo2.png" alt="Ejemplo 2" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Funcion2_ejemplo3.png">
+        <div class="ex-label">Ejemplo 3 — ID inexistente → excepción</div>
+        <img src="imágenes/Funcion2_ejemplo3.png" alt="Ejemplo 3" />
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 5 — PROCEDIMIENTO                            ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-proc">Procedimiento</span>
+  <h2 class="slide-title">registrar_practica ( p_dni, p_matricula, p_fecha, … )</h2>
+
+  <div class="slide-body">
+    <div class="content-row">
+
+      <div class="explanation">
+        <div>
+          <h3>¿Qué hace?</h3>
+          <p>Inserta una nueva práctica en la base de datos. El usuario pasa el DNI del estudiante y la matrícula del vehículo, y el procedimiento busca automáticamente sus IDs internos.</p>
+        </div>
+        <div>
+          <h3>¿Por qué es útil?</h3>
+          <p>Facilita el registro de prácticas sin necesidad de conocer los IDs de la base de datos. Además, valida que el estudiante y el vehículo existan antes de insertar, evitando errores manuales.</p>
+        </div>
+        <div>
+          <h3>Técnicas usadas</h3>
+          <p><strong>DML INSERT</strong> &nbsp;·&nbsp; <strong>SELECT INTO STRICT</strong> para buscar por DNI y matrícula &nbsp;·&nbsp; condicional <strong>IF</strong> para validar duración &nbsp;·&nbsp; excepciones <strong>NO_DATA_FOUND</strong>, <strong>TOO_MANY_ROWS</strong> y <strong>OTHERS</strong>.</p>
+        </div>
+      </div>
+
+      <div class="code-img-card zoomable" data-src="imágenes/Procedimiento.png">
+        <img src="imágenes/Procedimiento.png" alt="Código Procedimiento" />
+      </div>
+    </div>
+
+    <p class="examples-label">Ejemplos de llamada</p>
+    <div class="examples-row">
+      <div class="ex-card zoomable" data-src="imágenes/Procedimiento_ejemplo1.png">
+        <div class="ex-label">Ejemplo 1 — Inserción correcta</div>
+        <img src="imágenes/Procedimiento_ejemplo1.png" alt="Ejemplo 1" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Procedimiento_ejemplo2.png">
+        <div class="ex-label">Ejemplo 2 — DNI inexistente → excepción</div>
+        <img src="imágenes/Procedimiento_ejemplo2.png" alt="Ejemplo 2" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Procedimiento_ejemplo3.png">
+        <div class="ex-label">Ejemplo 3 — Matrícula inexistente → excepción</div>
+        <img src="imágenes/Procedimiento_ejemplo3.png" alt="Ejemplo 3" />
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 6 — TRIGGER 1                                ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-trig">Trigger 1</span>
+  <h2 class="slide-title">trg_validar_instructor — BEFORE INSERT · FOR EACH ROW</h2>
+
+  <div class="slide-body">
+    <div class="content-row">
+
+      <div class="explanation">
+        <div>
+          <h3>¿Qué lo desencadena?</h3>
+          <p>Se activa <strong>antes de cada INSERT</strong> en la tabla <code>practicas</code>, una fila a la vez (<strong>FOR EACH ROW</strong>).</p>
+        </div>
+        <div>
+          <h3>¿Qué hace?</h3>
+          <p>Comprueba que, si se indica un instructor (<code>idempleado_instructor IS NOT NULL</code>), ese ID pertenezca a alguien de la tabla <code>empleados</code>. Si no es así, cancela la inserción lanzando una excepción.</p>
+        </div>
+        <div>
+          <h3>¿Por qué es útil?</h3>
+          <p>La clave foránea de <code>practicas</code> solo verifica que el ID exista en <code>personas</code>, no que sea empleado. Este trigger añade esa validación extra, evitando registrar como instructor a un estudiante o a alguien externo.</p>
+        </div>
+        <div>
+          <h3>Técnicas usadas</h3>
+          <p><strong>BEFORE</strong> &nbsp;·&nbsp; <strong>FOR EACH ROW</strong> &nbsp;·&nbsp; <strong>NEW</strong> para leer el valor insertado &nbsp;·&nbsp; <strong>RETURN NEW</strong> (permite) o <strong>RAISE EXCEPTION</strong> (cancela).</p>
+        </div>
+      </div>
+
+      <div class="code-img-card zoomable" data-src="imágenes/Trigger1.png">
+        <img src="imágenes/Trigger1.png" alt="Código Trigger 1" />
+      </div>
+    </div>
+
+    <p class="examples-label">Ejemplos de lanzamiento</p>
+    <div class="examples-row">
+      <div class="ex-card zoomable" data-src="imágenes/Trigger1_ejemplo1.png">
+        <div class="ex-label">Ejemplo 1 — Instructor válido (empleado)</div>
+        <img src="imágenes/Trigger1_ejemplo1.png" alt="Ejemplo 1" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Trigger1_ejemplo2.png">
+        <div class="ex-label">Ejemplo 2 — ID no es empleado → bloqueado</div>
+        <img src="imágenes/Trigger1_ejemplo2.png" alt="Ejemplo 2" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Trigger1_ejemplo3.png">
+        <div class="ex-label">Ejemplo 3 — Instructor NULL → pasa sin validar</div>
+        <img src="imágenes/Trigger1_ejemplo3.png" alt="Ejemplo 3" />
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 7 — TRIGGER 2: TABLA PREVIA                  ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-trig">Trigger 2 — Tabla auxiliar</span>
+  <h2 class="slide-title">Tabla de auditoría: log_practicas</h2>
+
+  <div class="tabla-body">
+    <p>Antes de crear el trigger, necesitamos una tabla donde guardar el historial de cambios.
+    Cada vez que se inserte o modifique una práctica, el trigger escribirá un registro aquí.</p>
+
+    <div class="tabla-img-wrap zoomable" data-src="imágenes/Trigger2_tabla.png">
+      <img src="imágenes/Trigger2_tabla.png" alt="Tabla log_practicas" />
+    </div>
+
+    <p>La tabla <code>log_practicas</code> almacena: quién cambió (<code>idestudiante</code>),
+    cuándo (<code>fecha_cambio</code>), qué operación (<code>tipo_operacion</code>),
+    y los valores antes y después (<code>duracion_anterior</code> / <code>duracion_nueva</code>).</p>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 8 — TRIGGER 2                                ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-trig">Trigger 2</span>
+  <h2 class="slide-title">trg_log_practicas — AFTER INSERT OR UPDATE · FOR EACH ROW</h2>
+
+  <div class="slide-body">
+    <div class="content-row">
+
+      <div class="explanation">
+        <div>
+          <h3>¿Qué lo desencadena?</h3>
+          <p>Se activa <strong>después de cada INSERT o UPDATE</strong> en la tabla <code>practicas</code>, fila a fila (<strong>FOR EACH ROW</strong>).</p>
+        </div>
+        <div>
+          <h3>¿Qué hace?</h3>
+          <p>• <strong>INSERT:</strong> guarda en <code>log_practicas</code> que se añadió una nueva práctica y cuántos minutos tiene.<br/><br/>
+          • <strong>UPDATE:</strong> solo escribe un registro si la duración cambió, comparando <code>OLD.duracion_minutos</code> con <code>NEW.duracion_minutos</code>. Si solo cambian las observaciones, no hace nada.</p>
+        </div>
+        <div>
+          <h3>¿Por qué es útil?</h3>
+          <p>Mantiene un historial de cambios. Así se puede saber en cualquier momento cuándo se añadió una clase o cuándo alguien modificó su duración.</p>
+        </div>
+        <div>
+          <h3>Técnicas usadas</h3>
+          <p><strong>AFTER</strong> &nbsp;·&nbsp; <strong>FOR EACH ROW</strong> &nbsp;·&nbsp; <strong>NEW</strong> y <strong>OLD</strong> &nbsp;·&nbsp; <strong>TG_OP</strong> para distinguir INSERT de UPDATE &nbsp;·&nbsp; <strong>RETURN NULL</strong> (en AFTER el valor se ignora).</p>
+        </div>
+      </div>
+
+      <div class="code-img-card zoomable" data-src="imágenes/Trigger2.png">
+        <img src="imágenes/Trigger2.png" alt="Código Trigger 2" />
+      </div>
+    </div>
+
+    <p class="examples-label">Ejemplos de lanzamiento</p>
+    <div class="examples-row">
+      <div class="ex-card zoomable" data-src="imágenes/Trigger2_ejemplo1.png">
+        <div class="ex-label">Ejemplo 1 — INSERT → crea registro en log</div>
+        <img src="imágenes/Trigger2_ejemplo1.png" alt="Ejemplo 1" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Trigger2_ejemplo2.png">
+        <div class="ex-label">Ejemplo 2 — UPDATE duración → crea registro</div>
+        <img src="imágenes/Trigger2_ejemplo2.png" alt="Ejemplo 2" />
+      </div>
+      <div class="ex-card zoomable" data-src="imágenes/Trigger2_ejemplo3.png">
+        <div class="ex-label">Ejemplo 3 — UPDATE sin cambio → sin registro</div>
+        <img src="imágenes/Trigger2_ejemplo3.png" alt="Ejemplo 3" />
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  SLIDE 9 — BACKUP                                   ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<section class="slide">
+  <span class="tag tag-bk">Backup</span>
+  <h2 class="slide-title">Copia de Seguridad Completa con pg_dump</h2>
+
+  <div class="backup-body">
+
+    <div>
+      <p class="backup-sub">Comando para generar el backup</p>
+      <div class="cmd-block">pg_dump&nbsp; -h localhost&nbsp; -U postgres&nbsp; -p 5432&nbsp; -F p&nbsp; -v&nbsp; -f backup_autoescuela.sql&nbsp; autoescuela</div>
+    </div>
+
+    <div class="params-grid">
+      <div class="param-card">
+        <div class="param-name">-h localhost &nbsp;&amp;&amp;&nbsp; -U postgres</div>
+        <p>Define el host y el superusuario para asegurar permisos sobre funciones y triggers.</p>
+      </div>
+      <div class="param-card">
+        <div class="param-name">-F p</div>
+        <p>Formato <em>plain text</em> (.sql). Ideal para ver el SQL de procedimientos y triggers directamente en el fichero.</p>
+      </div>
+      <div class="param-card">
+        <div class="param-name">-v</div>
+        <p>Modo <em>verbose</em>: muestra el progreso de la exportación tabla a tabla.</p>
+      </div>
+      <div class="param-card">
+        <div class="param-name">-p 5432</div>
+        <p>Puerto de PostgreSQL (5432 por defecto).</p>
+      </div>
+      <div class="param-card">
+        <div class="param-name">-f backup_autoescuela.sql</div>
+        <p>Nombre del archivo de salida donde se guardará todo el volcado SQL.</p>
+      </div>
+      <div class="param-card">
+        <div class="param-name">autoescuela</div>
+        <p>Nombre de la base de datos en pgAdmin que se va a exportar.</p>
+      </div>
+    </div>
+
+    <div class="restore-row">
+      <div class="restore-card">
+        <h4>Paso 1 — Crear la base de datos destino</h4>
+        <div class="cmd-block">psql -U postgres -c "CREATE DATABASE autoescuela_nueva;"</div>
+      </div>
+      <div class="restore-card">
+        <h4>Paso 2 — Restaurar el backup</h4>
+        <div class="cmd-block">psql -h localhost -U postgres -d autoescuela_nueva &lt; backup_autoescuela.sql</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+</div><!-- /slides-track -->
+</div><!-- /slider-wrapper -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     NAVIGATION BAR
+════════════════════════════════════════════════════════════ -->
+<nav class="nav-bar">
+  <button class="nav-btn" id="btn-prev" title="Anterior (←)">&#8592;</button>
+  <div class="nav-dots" id="dots"></div>
+  <span class="nav-count" id="counter">1 / 9</span>
+  <button class="nav-btn" id="btn-next" title="Siguiente (→)">&#8594;</button>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     ZOOM MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="modal" id="modal">
+  <div class="modal-overlay" id="modal-overlay"></div>
+  <img class="modal-img" id="modal-img" src="" alt="" draggable="false" />
+  <button class="modal-close" id="modal-close">&#x2715;</button>
+  <!-- Zoom controls -->
+  <div class="zoom-bar">
+    <button id="zoom-out" title="Alejar (-)">&#x2212;</button>
+    <span class="zoom-level" id="zoom-level">100%</span>
+    <button id="zoom-in"  title="Acercar (+)">&#x2b;</button>
+    <div class="zoom-sep"></div>
+    <button id="zoom-reset" title="Resetear zoom">&#x21ba;</button>
+  </div>
+  <!-- Usage hint -->
+  <div class="zoom-hint" id="zoom-hint">🖱 Rueda para zoom &nbsp;·&nbsp; Arrastra para mover &nbsp;·&nbsp; Doble clic para resetear</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════ -->
+<script>
+  /* ── Slider ─────────────────────────────────────────────── */
+  const track    = document.getElementById('track');
+  const slides   = document.querySelectorAll('.slide');
+  const TOTAL    = slides.length;
+  let   current  = 0;
+
+  /* Build nav dots */
+  const dotsEl = document.getElementById('dots');
+  for (let i = 0; i < TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.title = 'Slide ' + (i + 1);
+    d.addEventListener('click', () => goTo(i));
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    if (n < 0 || n >= TOTAL) return;
+    current = n;
+    track.style.transform = `translateX(-${current * 100}vw)`;
+    updateNav();
+  }
+
+  function updateNav() {
+    document.getElementById('btn-prev').disabled = current === 0;
+    document.getElementById('btn-next').disabled = current === TOTAL - 1;
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + TOTAL;
+    document.querySelectorAll('.dot').forEach((d, i) =>
+      d.classList.toggle('active', i === current)
+    );
+  }
+
+  document.getElementById('btn-prev').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('btn-next').addEventListener('click', () => goTo(current + 1));
+
+  /* Keyboard navigation */
+  document.addEventListener('keydown', e => {
+    if (modal.classList.contains('open')) {
+      if (e.key === 'Escape') closeModal();
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ')  goTo(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')  goTo(current - 1);
+  });
+
+  updateNav();
+
+  /* ── Zoom modal ──────────────────────────────────────────── */
+  const modal     = document.getElementById('modal');
+  const modalImg  = document.getElementById('modal-img');
+  const zoomLvl   = document.getElementById('zoom-level');
+  const zoomHint  = document.getElementById('zoom-hint');
+
+  // Zoom state
+  let mScale = 1, mPanX = 0, mPanY = 0;
+  let isDragging = false, dragStartX = 0, dragStartY = 0;
+  let wasDragged = false;
+  let hintTimer  = null;
+
+  const MIN_SCALE = 1;
+  const MAX_SCALE = 10;
+  const STEP      = 0.18;
+
+  function applyTransform(smooth) {
+    modalImg.style.transition = smooth ? 'transform .15s ease-out' : 'none';
+    modalImg.style.transform  = `translate(${mPanX}px, ${mPanY}px) scale(${mScale})`;
+    modalImg.style.cursor     = mScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default';
+    zoomLvl.textContent       = Math.round(mScale * 100) + '%';
+  }
+
+  function clampPan() {
+    // Keep image within reasonable bounds when panned
+    const maxPan = (mScale - 1) * 400;
+    mPanX = Math.max(-maxPan, Math.min(maxPan, mPanX));
+    mPanY = Math.max(-maxPan, Math.min(maxPan, mPanY));
+  }
+
+  function resetZoom(smooth) {
+    mScale = 1; mPanX = 0; mPanY = 0;
+    applyTransform(smooth);
+  }
+
+  function zoomBy(factor, smooth) {
+    const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, mScale * factor));
+    if (next === mScale) return;
+    mScale = next;
+    if (mScale === 1) { mPanX = 0; mPanY = 0; }
+    else clampPan();
+    applyTransform(smooth);
+  }
+
+  function openModal(src, alt) {
+    resetZoom(false);
+    modalImg.src = src;
+    modalImg.alt = alt || '';
+    modal.classList.add('open');
+    // Show hint then fade
+    zoomHint.classList.remove('hidden');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => zoomHint.classList.add('hidden'), 3000);
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    resetZoom(false);
+  }
+
+  /* Wheel → zoom centered on cursor */
+  modal.addEventListener('wheel', e => {
+    if (!modal.classList.contains('open')) return;
+    e.preventDefault();
+
+    const rect   = modalImg.getBoundingClientRect();
+    const cx     = e.clientX - (rect.left + rect.width  / 2);
+    const cy     = e.clientY - (rect.top  + rect.height / 2);
+    const factor = e.deltaY < 0 ? (1 + STEP) : (1 - STEP);
+    const prev   = mScale;
+    mScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, mScale * factor));
+
+    if (mScale !== prev) {
+      // Shift pan so zoom is centered on mouse position
+      const ratio = mScale / prev;
+      mPanX = cx + (mPanX - cx) * ratio;
+      mPanY = cy + (mPanY - cy) * ratio;
+      if (mScale === 1) { mPanX = 0; mPanY = 0; }
+    }
+    applyTransform(false);
+  }, { passive: false });
+
+  /* Drag to pan */
+  modalImg.addEventListener('mousedown', e => {
+    if (mScale <= 1) return;
+    e.preventDefault();
+    isDragging  = true;
+    wasDragged  = false;
+    dragStartX  = e.clientX - mPanX;
+    dragStartY  = e.clientY - mPanY;
+    applyTransform(false);
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    mPanX      = e.clientX - dragStartX;
+    mPanY      = e.clientY - dragStartY;
+    wasDragged = true;
+    applyTransform(false);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      applyTransform(false);
+      // Prevent overlay click from closing if we just panned
+      setTimeout(() => { wasDragged = false; }, 80);
+    }
+  });
+
+  /* Double-click → reset zoom */
+  modalImg.addEventListener('dblclick', () => resetZoom(true));
+
+  /* Zoom bar buttons */
+  document.getElementById('zoom-in'   ).addEventListener('click', e => { e.stopPropagation(); zoomBy(1 + STEP, true); });
+  document.getElementById('zoom-out'  ).addEventListener('click', e => { e.stopPropagation(); zoomBy(1 - STEP, true); });
+  document.getElementById('zoom-reset').addEventListener('click', e => { e.stopPropagation(); resetZoom(true); });
+
+  /* Keyboard + / - */
+  document.addEventListener('keydown', e => {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1 + STEP, true); }
+    if (e.key === '-')                   { e.preventDefault(); zoomBy(1 - STEP, true); }
+    if (e.key === '0')                   { e.preventDefault(); resetZoom(true); }
+  });
+
+  /* Close */
+  document.getElementById('modal-overlay').addEventListener('click', () => {
+    if (!wasDragged) closeModal();
+  });
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+
+  /* Attach open to all zoomable elements */
+  document.querySelectorAll('.zoomable').forEach(el => {
+    el.addEventListener('click', () => {
+      const src = el.dataset.src
+        || (el.tagName === 'IMG' ? el.src : el.querySelector('img')?.src);
+      const alt = el.alt || el.querySelector('img')?.alt || '';
+      if (src) openModal(src, alt);
+    });
+  });
+</script>
+
+</body>
+</html>
